@@ -4,13 +4,14 @@ import (
   "fmt"
   "net"
   "log"
+  "strings"
   "github.com/nu7hatch/gouuid"
   "github.com/TwinProduction/go-color"
 )
 
 type Client struct {
-  id *uuid.UUID
-  currentRoom *uuid.UUID
+  UUID *uuid.UUID
+  room string
   ipAddr string
   username string
   conn net.Conn
@@ -20,28 +21,25 @@ type Client struct {
 
 type Server struct {
   port string
-  clients map[*uuid.UUID]Client
+  clients map[*uuid.UUID]*Client
   clientCount int
   currentClient *uuid.UUID
-  mainRoom *uuid.UUID
-  rooms []*uuid.UUID
+  mainRoom string
+  rooms []string
 
   Delim string
 }
 
 func NewServer(port string) Server {
-  mainRoom, err := uuid.NewV4()
-  if err != nil {
-    log.Printf("error creating mainRoom UUID: %s", err)
-  }
+  mainRoom := "main"
 
   return Server {
     port,
-    make(map[*uuid.UUID]Client),
+    make(map[*uuid.UUID]*Client),
     0,
     nil,
     mainRoom,
-    []*uuid.UUID{mainRoom},
+    []string{mainRoom},
     "\n",
   }
 }
@@ -61,26 +59,26 @@ func (server *Server) Listen() {
       log.Printf("error creating client UUID: %s", err)
     }
 
-    client := Client{ UUID, server.mainRoom, conn.RemoteAddr().String(), "", conn, false }
+    client := Client{ UUID, server.mainRoom, strings.Split(conn.RemoteAddr().String(), ":")[0], "", conn, false }
     fmt.Println(color.Ize(color.Green, "New connection from " + client.ipAddr))
-    fmt.Println(color.Ize(color.Green, "Client created with UUID: " + client.id.String()))
+    fmt.Println(color.Ize(color.Green, "Client created with UUID: " + client.UUID.String()))
 
-    server.clients[UUID] = client 
-    go server.handleClient(&client)
+    server.clients[UUID] = &client 
+    go server.handleClient(server.clients[UUID])
   }
 }
 
 func (server *Server) handleClient(client *Client) {
-  server.sendClient(*client, "Welcome! Enter your username")
-  client.username = server.recvClient(*client)
-  server.broadcast(fmt.Sprintf("%s has joined the chat", client.username))
+  server.sendClient(client, "Welcome! Enter your username")
+  client.username = server.recvClient(client)
+  server.broadcast(fmt.Sprintf("%s has connected joined chatroom: %s", client.username, client.room))
 
   for {
-    msg := server.recvClient(*client)
+    msg := server.recvClient(client)
     err := server.handleClientMsg(client, msg)
     if err != nil {
       log.Printf("error in handleClientMsg triggered: %s", err)
-      server.destroyClient(*client)
+      server.destroyClient(client)
       break
     }
   }

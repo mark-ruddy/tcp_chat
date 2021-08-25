@@ -1,11 +1,17 @@
 package main
 
 import (
+  "os"
   "tcp_chat/server"
 )
 
 func main() {
-  s := server.NewServer(":9999")
+  port := ":9999"
+  if len(os.Args[1:]) >= 1 {
+    port = ":" + os.Args[1]
+  }
+
+  s := server.NewServer(port)
   s.Listen()
 }
 

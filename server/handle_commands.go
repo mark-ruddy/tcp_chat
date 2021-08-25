@@ -5,7 +5,7 @@ import (
   "strings"
 )
 
-func (server *Server) sendNoPermissionMsg(client Client) {
+func (server *Server) sendNoPermissionMsg(client *Client) {
   server.sendClient(client, "You do not have admin privileges to execute that command")
 }
 
@@ -14,7 +14,7 @@ func (server *Server) handleClientMsg(client *Client, msg string) error {
     return fmt.Errorf("empty string sent to handleClientMsg")
   }
   if msg[0] != '/' {
-    server.broadcast(fmt.Sprintf("%s: %s", client.username, msg))
+    server.broadcastToRoom(fmt.Sprintf("%s: %s", client.username, msg), client.room)
     return nil
   }
 
@@ -23,26 +23,49 @@ func (server *Server) handleClientMsg(client *Client, msg string) error {
   msg = msg[1:]
   msgSplit := strings.Split(msg, " ")
   cmd := msgSplit[0]
-  firstArg := msgSplit[1]
+
+  firstArg := ""
+  if len(msgSplit) > 1 {
+    firstArg = msgSplit[1]
+  }
 
   switch cmd {
   case "admin":
     // TODO: Not sure how easy it would be too spoof a localhost ipAddr, this is likely insecure
     if client.ipAddr == "127.0.0.1" {
       client.Admin = true
+      server.sendClient(client, "You have assumed admin privileges")
     } else {
-      server.sendClient(*client, "You do not have permission to assume admin privileges")
+      server.sendClient(client, "You do not have permission to assume admin privileges")
     }
   case "destroy":
-    if client.Admin {
-      server.destroyClientFromUUID(firstArg)
+    if client.Admin && firstArg != "" {
+      server.destroyClientFromUUID(firstArg, client)
+    } else if client.Admin && firstArg == "" {
+      server.sendClient(client, "Usage: /destroy <UUID>")
     } else {
-      server.sendNoPermissionMsg(*client)
+      server.sendNoPermissionMsg(client)
     }
+  case "join":
+    if firstArg != "" {
+      server.addClientToRoom(client, firstArg)
+    } else {
+      server.sendClient(client, "Usage: /join <room_name>")
+    }
+  case "create":
+    if firstArg != "" {
+      server.createRoom(client, firstArg)
+    } else {
+      server.sendClient(client, "Usage: /create <room_name>")
+    }
+  case "list":
+    server.sendClientList(client)
+  case "rooms":
+    server.sendClientRooms(client)
   case "help":
-    server.sendClient(*client, "No help docs available right now")
+    server.sendClient(client, "No help docs available right now")
   default:
-    server.sendClient(*client, fmt.Sprintf("Command %s does not exist", msg))
+    server.sendClient(client, fmt.Sprintf("Command %s does not exist", msg))
   }
   return nil
 }

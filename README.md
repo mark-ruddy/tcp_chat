@@ -14,6 +14,12 @@ go build -o tcp_chat main.go
 ./tcp_chat <PORT>
 ```
 
+Connect to server using netcat/telnet:
+```
+netcat <HOST> <PORT>
+netcat localhost 9999
+```
+
 ### Administration
 
 Users connected by localhost(127.0.0.1) IP can request admin privileges with `/admin`, allowing them to manage the server, remove over users etc.
